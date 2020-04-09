@@ -21,9 +21,18 @@ HOST = 'app.indico.io'
 MODEL_ID = 24333
 
 
-def collect_token_positions(predictions, ocr_result):
+def collect_token_positions(predictions: List[List[dict]], ocr_result: List[dict]) -> List[dict]:
+    """
+    Gets the predicted tokens positions on the PDF
+    
+    Arguments:
+        predictions {List[List[dict]]} -- prediction output from ModelGroupPredict
+        ocr_result {List[dict]} -- ocr output from DocumentExtraction w/ ondocument preset
+    
+    Returns:
+        List[dict] -- locations of predictions
+    """
     doc_positions = []
-    unique_labels = set()
     for page_num, pred_list in enumerate(predictions):
         page_positions = []
         pred_list = sorted(pred_list, key=lambda x: x["start"])
@@ -33,15 +42,21 @@ def collect_token_positions(predictions, ocr_result):
             for token in page_tokens:
                 if token['page_offset']['start'] >= start and token['page_offset']['end'] <= end:
                     position_data = token['position']
-                    position_data['label'] = pred['label']
-                    unique_labels.add(pred['label'])
                     page_positions.append(position_data)
         doc_positions.append(page_positions)
-    return doc_positions, unique_labels
+    return doc_positions
 
 
 
-def highlight_pdf(pdf_path, output_path, doc_positions):
+def highlight_pdf(pdf_path: str, output_path: str, doc_positions: List[dict]) -> None:
+    """
+    Highlights predictions onto a copy of source PDF
+    
+    Arguments:
+        pdf_path {str} -- path to source PDF
+        output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
+        doc_positions {List[dict]} -- output from collect_token_positions function
+    """
     my_pdf = PdfAnnotator(pdf_path, scale=72/300)
 
     for page_num, page in enumerate(doc_positions):
@@ -64,7 +79,7 @@ def highlight_pdf(pdf_path, output_path, doc_positions):
     my_pdf.write(output_path)
 
 
-def get_client(host=HOST, api_token_path=TOKEN_PATH):
+def get_client(host: str, api_token_path: str):
     config = IndicoConfig(
             host=HOST,
             api_token_path=TOKEN_PATH
@@ -72,7 +87,17 @@ def get_client(host=HOST, api_token_path=TOKEN_PATH):
     return IndicoClient(config=config)
 
 
-def ocr_pdf_document(client, pdf_path):
+def ocr_pdf_document(client: IndicoClient, pdf_path: str) -> Tuple[List[dict], List[str]]:
+    """
+    OCRs a PDF document and prepares page-level text for predictions
+    
+    Arguments:
+        client {IndicoClient} -- client for your account
+        pdf_path {str} -- path to the PDF you want to OCR
+    
+    Returns:
+        Tuple[List[dict], List[str]] -- Raw OCR result and list of page texts
+    """
     files_to_extract = client.call(
         DocumentExtraction(
             files=[pdf_path], 
@@ -87,7 +112,18 @@ def ocr_pdf_document(client, pdf_path):
     return full_result, page_text
 
 
-def get_predictions(client: IndicoClient, page_texts: List[str], model_id: int):
+def get_predictions(client: IndicoClient, page_texts: List[str], model_id: int) -> List[List[dict]]:
+    """
+    Get predicted annotations for PDF pages
+    
+    Arguments:
+        client {IndicoClient} -- your account client
+        page_texts {List[str]} -- list of page texts
+        model_id {int} -- model ID for your trained extraction model
+    
+    Returns:
+        List[List[dict]] -- For each page, a list of predicted annotations
+    """
     job = client.call(
         ModelGroupPredict(
             model_id=model_id,
@@ -100,19 +136,26 @@ def get_predictions(client: IndicoClient, page_texts: List[str], model_id: int):
     return prediction.result
 
 
-def get_page_text_to_ocr(ocr_result):
+def get_page_text_to_ocr(ocr_result: List[dict]) -> List[str]:
+    """
+    Helper function to get page texts from raw ocr result
+    Arguments:
+        ocr_result {List[dict]} -- raw ocr result
+    
+    Returns:
+        List[str] -- list of page text
+    """
     page_text = list()
     for page in ocr_result:
         page_text.append(page['pages'][0]['text'])
-    print(page_text)
     return page_text
 
 
 if __name__ == "__main__":
     print('Starting predictions and PDF highlighting')
-    client = get_client()
+    client = get_client(host=HOST, api_token_path=TOKEN_PATH)
     ocr_result, page_texts = ocr_pdf_document(client, pdf_path=PDF_PATH)
     predictions = get_predictions(client, page_texts, model_id=MODEL_ID)
-    doc_positions, unique_labels = collect_token_positions(predictions, ocr_result)
+    doc_positions = collect_token_positions(predictions, ocr_result)
     highlight_pdf(PDF_PATH, OUTPUT_PATH, doc_positions)
     print('Finished')
