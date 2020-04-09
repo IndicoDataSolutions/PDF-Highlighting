@@ -1,0 +1,9 @@
+*.p
+*.vscode
+*.ipynb_checkpoints/
+*.ipynb
+old_material/
+venv/
+*.pdf
+*__pycache__
+*.txt
