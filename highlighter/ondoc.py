@@ -11,17 +11,11 @@ class OnDoc:
 
     @property
     def page_text(self) -> List[str]:
-        page_text = list()
-        for page in self.ondoc:
-            page_text.append(page['pages'][0]['text'])
-        return page_text
+        return list(page['pages'][0]['text'] for page in self.ondoc)
 
     @property
     def page_results(self)-> List[dict]:
-        page_results = list()
-        for page in self.ondoc:
-            page_results.append(page['pages'][0])
-        return page_results
+        return list(page['pages'][0] for page in self.ondoc)
 
     @property
     def block_text(self) -> List[str]:

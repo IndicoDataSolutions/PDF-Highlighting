@@ -1,7 +1,7 @@
 # PDF Highlighter
 
 The class Highlighter uses ondocument OCR output from the Indico API and predicted 
-annotation results to apply highlights to (default: a copy) of a source PDF document.  
+annotation results to apply highlights to a source PDF document (or creates a highlighted copy).  
 
 ## Example Usage
 Assumes you know how to obtain ocr_result object 'ondoc_ocr_result' and 
