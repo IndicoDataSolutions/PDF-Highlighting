@@ -1,6 +1,7 @@
 from typing import List, Tuple
 from pdf_annotate import PdfAnnotator, Location, Appearance
 from collections import defaultdict
+import fitz
 from .ondoc import OnDoc
 
 
@@ -35,7 +36,7 @@ class Highlighter:
         for page_ocr, page_preds in zip(self.ocr_result.ondoc, predictions):
             result = defaultdict(list)
             meta = page_ocr["pages"][0]
-            result["dimensions"].extend([meta["size"]["height"], meta["size"]["width"]])
+            result["dimensions"].extend([meta["size"]["width"], meta["size"]["height"]])
             result["page_num"] = meta["page_num"]
             page_preds = sorted(page_preds, key=lambda x: x["start"])
             for pred in page_preds:
@@ -81,9 +82,9 @@ class Highlighter:
                     "square",
                     Location(
                         x1=loc["bbLeft"],
-                        y1=page["dimensions"][0] - loc["bbTop"],
+                        y1=page["dimensions"][1] - loc["bbTop"],
                         x2=loc["bbRight"],
-                        y2=page["dimensions"][0] - loc["bbBot"],
+                        y2=page["dimensions"][1] - loc["bbBot"],
                         page=page["page_num"],
                     ),
                     Appearance(
@@ -94,3 +95,28 @@ class Highlighter:
                     ),
                 )
         my_pdf.write(output_path)
+
+
+    def pymudf_highlight(self, pdf_path, output_path):
+        """
+        Highlights predictions onto a copy of source PDF. 
+        Implementation w/ pymudf
+        
+        Arguments:
+            pdf_path {str} -- path to source PDF
+            output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
+        """
+        doc = fitz.open(pdf_path)
+        for preds in self.prediction_positions:
+            page = doc[preds['page_num']]
+            xnorm = page.rect[2] / preds['dimensions'][0]
+            ynorm = page.rect[3] / preds['dimensions'][1]
+            for token in preds['positions']:
+                annotation = fitz.Rect(
+                    token['bbLeft'] * xnorm, 
+                    token['bbTop'] * ynorm,
+                    token['bbRight'] * xnorm,
+                    token['bbBot'] * ynorm,
+                )
+                page.addHighlightAnnot(annotation)
+        doc.save(output_path)
