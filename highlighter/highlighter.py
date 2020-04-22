@@ -38,8 +38,10 @@ class Highlighter:
             meta = page_ocr["pages"][0]
             result["dimensions"].extend([meta["size"]["width"], meta["size"]["height"]])
             result["page_num"] = meta["page_num"]
+            result["labels"] = defaultdict(int)
             page_preds = sorted(page_preds, key=lambda x: x["start"])
             for pred in page_preds:
+                result["labels"][pred["label"]] += 1
                 start, end = (
                     pred["start"] - 1,
                     pred["end"] + 1,
@@ -55,56 +57,15 @@ class Highlighter:
             return prediction_positions
         self.prediction_positions = prediction_positions
 
-    def highlight_pdf(
-        self,
-        pdf_path: str,
-        output_path: str,
-        highlight_rgb: List[int] = [255, 255, 0],
-        transparency: float = 0.4,
-    ) -> None:
+
+    def highlight_pdf(self, pdf_path: str, output_path: str, include_toc: bool = False):
         """
-        Highlights predictions onto a copy of source PDF
+        Highlights predictions onto a copy of source PDF with the option to include a table of contents
         
         Arguments:
             pdf_path {str} -- path to source PDF
             output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
-            highlight_rgb {List[int]} -- rgb color for highlight (default: yellow)
-            transparency {float} -- highlight transparency (default: 0.4)
-        """
-        my_pdf = PdfAnnotator(pdf_path, scale=72 / 300)
-        highlight_rgb = tuple(rgb / 255 for rgb in highlight_rgb)
-        for page in self.prediction_positions:
-            if not page["positions"]:
-                print(f"No predicted annotations on page {page['page_num']}")
-                continue
-            for loc in page["positions"]:
-                my_pdf.add_annotation(
-                    "square",
-                    Location(
-                        x1=loc["bbLeft"],
-                        y1=page["dimensions"][1] - loc["bbTop"],
-                        x2=loc["bbRight"],
-                        y2=page["dimensions"][1] - loc["bbBot"],
-                        page=page["page_num"],
-                    ),
-                    Appearance(
-                        stroke_color=highlight_rgb,
-                        stroke_width=0.1,
-                        fill=highlight_rgb,
-                        fill_transparency=transparency,
-                    ),
-                )
-        my_pdf.write(output_path)
-
-
-    def pymudf_highlight(self, pdf_path, output_path):
-        """
-        Highlights predictions onto a copy of source PDF. 
-        Implementation w/ pymudf
-        
-        Arguments:
-            pdf_path {str} -- path to source PDF
-            output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
+            include_toc {bool} -- if True, insert a table of contents of what annotations were made and on what page
         """
         doc = fitz.open(pdf_path)
         for preds in self.prediction_positions:
@@ -119,4 +80,28 @@ class Highlighter:
                     token['bbBot'] * ynorm,
                 )
                 page.addHighlightAnnot(annotation)
+        
+        if include_toc:
+            toc_text = self.get_toc_text(pdf_path)
+            doc.insertPage(0, text=toc_text, fontsize=13)
         doc.save(output_path)
+        
+
+    def get_toc_text(self, filename: str):
+        """
+        If a table of contents is requested, formats and returns the page text
+        
+        Arguments:
+            filename {str} -- name of the pdf file
+        Returns:
+            {str} -- page text for the table of contents
+        """
+        base_text = f'File: {filename}\n\nPages w/ Extractions found:\n\n'
+        page_strings = list()
+        for page in self.prediction_positions:
+            if page['labels']:
+                start = f"Page {page['page_num'] + 1}: " 
+                content = ', '.join(f'{key} ({val})' for key, val in page['labels'].items())
+                page_strings.append(start + content)
+        return base_text + '\n'.join(page_strings)
+

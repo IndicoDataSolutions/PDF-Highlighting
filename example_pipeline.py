@@ -86,7 +86,7 @@ def main():
     predictions = get_predictions(client, page_level_text, model_id=MODEL_ID)
     highlight = Highlighter(ocr_result)
     highlight.collect_positions(predictions)
-    highlight.highlight_pdf(PDF_PATH, OUTPUT_PATH)
+    highlight.highlight_pdf(PDF_PATH, OUTPUT_PATH, include_toc=True)
     print('Finished..')
 
 

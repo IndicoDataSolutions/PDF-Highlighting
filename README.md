@@ -1,11 +1,14 @@
 # PDF Highlighter
 
-The class Highlighter uses ondocument OCR output from the Indico API and predicted 
-annotation results to apply highlights to a source PDF document (or creates a highlighted copy).  
+The class Highlighter uses ondocument OCR output and predicted 
+annotation results rom the Indico API to apply highlights to a source 
+PDF document (or creates a highlighted copy). Optionally, you can also insert a table of contents detailing the number and type of extractions on each page.   
+
 
 ## Example Usage
-Assumes you know how to obtain ocr_result object 'ondoc_ocr_result' and 
-'model_predictions'. If you're not sure, see the example in 'example_pipeline.py' or 
+Assumes you know how to obtain the returned object from DocumentExtraction 
+'ondoc_ocr_result' and prediction from ModelGroupPredict 'model_predictions'. 
+If you're not sure, see the example in 'example_pipeline.py' or 
 check out [the documentation](https://indicodatasolutions.github.io/indico-client-python/)
 ```
 from highlighter import Highlighter
@@ -16,7 +19,7 @@ highlight = Highlighter(ondoc_ocr_result)
 highlight.collect_positions(model_predictions)
 
 # highlight the positions onto a PDF
-highlight.highlight_pdf('./source_doc.pdf', './highlighted_source_doc.pdf')
+highlight.highlight_pdf('./source_doc.pdf', './highlighted_source_doc.pdf', include_toc=True)
 ```
 
 
