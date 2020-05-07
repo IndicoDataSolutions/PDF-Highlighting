@@ -2,6 +2,7 @@ from typing import List, Tuple
 from pdf_annotate import PdfAnnotator, Location, Appearance
 from collections import defaultdict
 import fitz
+import fake
 from .ondoc import OnDoc
 
 
@@ -32,6 +33,7 @@ class Highlighter:
         Returns:
             List[dict] -- locations of predictions
         """
+        # TODO: unify token blocks from same text prediction
         prediction_positions = []
         for page_ocr, page_preds in zip(self.ocr_result.ondoc, predictions):
             result = defaultdict(list)
@@ -47,11 +49,15 @@ class Highlighter:
                     pred["start"] - 1,
                     pred["end"] + 1,
                 )  # account for punctuation incl. w/ token
+                new_prediction = True
                 for token in page_ocr["tokens"]:
                     if (
                         token["page_offset"]["start"] >= start
                         and token["page_offset"]["end"] <= end
                     ):
+                        if new_prediction:
+                            token["position"]["label"] = (pred["label"], len(pred["text"])) # length for spoofing
+                            new_prediction = False
                         result["positions"].append(token["position"])
             prediction_positions.append(result)
         if not inplace:
@@ -110,6 +116,36 @@ class Highlighter:
                 page.addRedactAnnot(annotation, fill=(1, 1, 1))
             page.apply_redactions()
         doc.save(output_path)
+
+    def redact_and_replace(self, pdf_path: str, output_path: str, fill_text: dict = None):
+        # TODO: work in progress
+        raise NotImplementedError
+        doc = fitz.open(pdf_path)
+        for preds in self.prediction_positions:
+            page = doc[preds['page_num']]
+            xnorm = page.rect[2] / preds['dimensions'][0]
+            ynorm = page.rect[3] / preds['dimensions'][1]
+            for token in preds['positions']:
+                annotation = fitz.Rect(
+                    token['bbLeft'] * xnorm, 
+                    token['bbTop'] * ynorm,
+                    token['bbRight'] * xnorm,
+                    token['bbBot'] * ynorm,
+                )
+                if 'label' in token:
+                    label_type = fill_text[token['label'][0]]
+                    if label_type == 'numerify':
+                        text = getattr(fake, label_type)(token['label'][1] * '#')
+                    elif label_type == 'text':
+                        text = getattr(fake, label_type)(token['label'][1])
+                    else:
+                        text = getattr(fake, label_type)()
+                    page.addRedactAnnot(annotation, text=text, fill=(1,1,1), fontsize=15)
+                else:
+                    page.addRedactAnnot(annotation, fill=(1,1,1))
+                page.apply_redactions()
+        doc.save(output_path)
+
 
     def get_toc_text(self, filename: str):
         """
