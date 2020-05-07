@@ -2,7 +2,8 @@ from typing import List, Tuple
 from pdf_annotate import PdfAnnotator, Location, Appearance
 from collections import defaultdict
 import fitz
-import fake
+from faker import Faker
+import copy
 from .ondoc import OnDoc
 
 
@@ -44,25 +45,33 @@ class Highlighter:
             page_preds = sorted(page_preds, key=lambda x: x["start"])
             for pred in page_preds:
                 result["labels"][pred["label"]] += 1
-                result["text"].append(pred["text"])
                 start, end = (
                     pred["start"] - 1,
                     pred["end"] + 1,
                 )  # account for punctuation incl. w/ token
                 new_prediction = True
+                position = dict()
                 for token in page_ocr["tokens"]:
                     if (
                         token["page_offset"]["start"] >= start
                         and token["page_offset"]["end"] <= end
                     ):
                         if new_prediction:
-                            token["position"]["label"] = (pred["label"], len(pred["text"])) # length for spoofing
+                            position = copy.deepcopy(token["position"])
+                            position["label"] = (pred["label"], len(pred["text"])) # length for spoofing
                             new_prediction = False
-                        result["positions"].append(token["position"])
+                        elif token["position"]["bbTop"] > position["bbBot"]:
+                            result["positions"].append(position)
+                            position = copy.deepcopy(token["position"])
+                        else:
+                            position["bbRight"] = token["position"]["bbRight"]
+                if position:
+                    result["positions"].append(position)
             prediction_positions.append(result)
         if not inplace:
             return prediction_positions
         self.prediction_positions = prediction_positions
+
 
     def highlight_pdf(self, pdf_path: str, output_path: str, include_toc: bool = False):
         """
@@ -120,6 +129,7 @@ class Highlighter:
     def redact_and_replace(self, pdf_path: str, output_path: str, fill_text: dict = None):
         # TODO: work in progress
         raise NotImplementedError
+        fake = Faker()
         doc = fitz.open(pdf_path)
         for preds in self.prediction_positions:
             page = doc[preds['page_num']]
