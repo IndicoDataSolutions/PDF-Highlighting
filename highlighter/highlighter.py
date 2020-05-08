@@ -101,7 +101,7 @@ class Highlighter:
             doc.insertPage(0, text=toc_text, fontsize=13)
         doc.save(output_path)
 
-    def redact_pdf(self, pdf_path: str, output_path: str):
+    def redact_pdf(self, pdf_path: str, output_path: str, color_black: bool = True):
         """
         Redact predicted text from a copy of a source PDF. Currently, you still need to convert 
         your PDF to image files afterward to ensure PI is fully removed from the underlying data.
@@ -109,7 +109,12 @@ class Highlighter:
         Arguments:
             pdf_path {str} -- path to source PDF
             output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
+            color_black {bool} -- if True, redactions are made with a black mark, else they are made with a white mark
         """
+        if color_black:
+            color = (0, 0, 0)
+        else:
+            color = (1, 1, 1)
         doc = fitz.open(pdf_path)
         for preds in self.prediction_positions:
             page = doc[preds["page_num"]]
@@ -122,9 +127,13 @@ class Highlighter:
                     token["bbRight"] * xnorm,
                     token["bbBot"] * ynorm,
                 )
-                page.addRedactAnnot(annotation, fill=(1, 1, 1))
+                inflater = annotation.height * 0.1
+                annotation.x0, annotation.y0 = annotation.x0 - inflater, annotation.y0 - inflater
+                annotation.x1, annotation.y1 = annotation.x1 + inflater, annotation.y1 + inflater
+                page.addRedactAnnot(annotation, fill=color)
             page.apply_redactions()
         doc.save(output_path)
+
 
     def redact_and_replace(self, pdf_path: str, output_path: str, fill_text: dict = None):
         """

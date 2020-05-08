@@ -1,9 +1,8 @@
-*.p
 *.vscode
 *.ipynb_checkpoints/
-*.ipynb
 old_material/
 venv/
-*.pdf
 *__pycache__
 *.txt
+pdf_example_w_labels.pdf
+jupyter_example_w_labels.pdf
