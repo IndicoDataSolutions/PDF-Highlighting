@@ -1,8 +1,11 @@
 # PDF Highlighter
 
 The class Highlighter uses ondocument OCR output and predicted 
-annotation results rom the Indico API to apply highlights to a source 
-PDF document (or creates a highlighted copy). Optionally, you can also insert a table of contents detailing the number and type of extractions on each page.   
+annotation results rom the Indico API to either (1) apply highlights to a 
+source PDF document or (2) redact elements from the source document (and 
+optionally replace with anonymized text). Additionally, you can optionally 
+insert a table of contents detailing the number and type of extractions on 
+each page.   
 
 
 ## Example Usage
@@ -10,6 +13,8 @@ Assumes you know how to obtain the returned object from DocumentExtraction
 'ondoc_ocr_result' and prediction from ModelGroupPredict 'model_predictions'. 
 If you're not sure, see the example in 'example_pipeline.py' or 
 check out [the documentation](https://indicodatasolutions.github.io/indico-client-python/)
+
+## Highlight PDF example
 ```
 from highlighter import Highlighter
 
@@ -22,6 +27,19 @@ highlight.collect_positions(model_predictions)
 highlight.highlight_pdf('./source_doc.pdf', './highlighted_source_doc.pdf', include_toc=True)
 ```
 
+## Redact and Replace PDF example
+```
+from highlighter import Highlighter
+
+highlight = Highlighter(ondoc_ocr_result)
+
+# map predictions to PDF location
+highlight.collect_positions(model_predictions)
+
+# add a key to fill_text for each label in your extraction task w/ allowed anonymized data method (for allowed methods see: https://github.com/joke2k/faker)
+fill_text = dict(member='name', date_of_birth='date', invoice_number='numerify')
+highlight.redact_and_replace('source.pdf', 'redacted.pdf', fill_text=fill_text)
+```
 
 ## Demo Script
 

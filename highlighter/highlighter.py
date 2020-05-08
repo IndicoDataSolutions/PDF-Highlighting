@@ -58,7 +58,10 @@ class Highlighter:
                     ):
                         if new_prediction:
                             position = copy.deepcopy(token["position"])
-                            position["label"] = (pred["label"], len(pred["text"])) # length for spoofing
+                            position["label"] = (
+                                pred["label"],
+                                len(pred["text"]),
+                            )  # length for spoofing
                             new_prediction = False
                         elif token["position"]["bbTop"] > position["bbBot"]:
                             result["positions"].append(position)
@@ -71,7 +74,6 @@ class Highlighter:
         if not inplace:
             return prediction_positions
         self.prediction_positions = prediction_positions
-
 
     def highlight_pdf(self, pdf_path: str, output_path: str, include_toc: bool = False):
         """
@@ -128,14 +130,24 @@ class Highlighter:
                     token["bbBot"] * ynorm,
                 )
                 inflater = annotation.height * 0.1
-                annotation.x0, annotation.y0 = annotation.x0 - inflater, annotation.y0 - inflater
-                annotation.x1, annotation.y1 = annotation.x1 + inflater, annotation.y1 + inflater
+                annotation.x0, annotation.y0 = (
+                    annotation.x0 - inflater,
+                    annotation.y0 - inflater,
+                )
+                annotation.x1, annotation.y1 = (
+                    annotation.x1 + inflater,
+                    annotation.y1 + inflater,
+                )
                 page.addRedactAnnot(annotation, fill=color)
             page.apply_redactions()
         doc.save(output_path)
+        print(
+            f"*Important* to ensure that underlying data can't be recovered, convert {output_path} to a png, tif, or scanned pdf file"
+        )
 
-
-    def redact_and_replace(self, pdf_path: str, output_path: str, fill_text: dict = None):
+    def redact_and_replace(
+        self, pdf_path: str, output_path: str, fill_text: dict = None
+    ):
         """
         Redact predicted text from a copy of a source PDF and replace if with fake values based on 
         label keys. For a full list of fake data options, see: https://github.com/joke2k/faker). 
@@ -156,34 +168,44 @@ class Highlighter:
         fake = Faker()
         doc = fitz.open(pdf_path)
         for preds in self.prediction_positions:
-            page = doc[preds['page_num']]
-            xnorm = page.rect[2] / preds['dimensions'][0]
-            ynorm = page.rect[3] / preds['dimensions'][1]
-            for token in preds['positions']:
+            page = doc[preds["page_num"]]
+            xnorm = page.rect[2] / preds["dimensions"][0]
+            ynorm = page.rect[3] / preds["dimensions"][1]
+            for token in preds["positions"]:
                 annotation = fitz.Rect(
-                    token['bbLeft'] * xnorm, 
-                    token['bbTop'] * ynorm,
-                    token['bbRight'] * xnorm,
-                    token['bbBot'] * ynorm,
+                    token["bbLeft"] * xnorm,
+                    token["bbTop"] * ynorm,
+                    token["bbRight"] * xnorm,
+                    token["bbBot"] * ynorm,
                 )
                 inflater = annotation.height * 0.1
-                annotation.x0, annotation.y0 = annotation.x0 - inflater, annotation.y0 - inflater
-                annotation.x1, annotation.y1 = annotation.x1 + inflater, annotation.y1 + inflater
-                if 'label' in token:
-                    label_type = fill_text[token['label'][0]]
-                    if label_type == 'numerify':
-                        text = getattr(fake, label_type)(token['label'][1] * '#')
-                    elif label_type == 'text':
-                        text = getattr(fake, label_type)(token['label'][1])
+                annotation.x0, annotation.y0 = (
+                    annotation.x0 - inflater,
+                    annotation.y0 - inflater,
+                )
+                annotation.x1, annotation.y1 = (
+                    annotation.x1 + inflater,
+                    annotation.y1 + inflater,
+                )
+                if "label" in token:
+                    label_type = fill_text[token["label"][0]]
+                    if label_type == "numerify":
+                        text = getattr(fake, label_type)(token["label"][1] * "#")
+                    elif label_type == "text":
+                        text = getattr(fake, label_type)(token["label"][1])
                     else:
                         text = getattr(fake, label_type)()
-                    page.addRedactAnnot(annotation, text=text, fill=(1,1,1), fontsize=15)
+                    page.addRedactAnnot(
+                        annotation, text=text, fill=(1, 1, 1), fontsize=15
+                    )
                 else:
-                    #second line of single prediction redacted
-                    page.addRedactAnnot(annotation, fill=(1,1,1))
+                    # second line of single prediction redacted
+                    page.addRedactAnnot(annotation, fill=(1, 1, 1))
                 page.apply_redactions()
         doc.save(output_path)
-
+        print(
+            f"*Important* to ensure that underlying data can't be recovered, convert {output_path} to a png, tif, or scanned pdf file"
+        )
 
     def get_toc_text(self, filename: str):
         """
