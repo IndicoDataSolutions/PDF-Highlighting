@@ -127,8 +127,23 @@ class Highlighter:
         doc.save(output_path)
 
     def redact_and_replace(self, pdf_path: str, output_path: str, fill_text: dict = None):
-        # TODO: work in progress
-        raise NotImplementedError
+        """
+        Redact predicted text from a copy of a source PDF and replace if with fake values based on 
+        label keys. For a full list of fake data options, see: https://github.com/joke2k/faker). 
+        
+        Arguments:
+            pdf_path {str} -- path to source PDF
+            output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
+            fill_test {dict} -- a dictionary where the keys are your labels and the val is an option from the 
+                                faker library. Possible options include 'text', 'company', 'currency', 'numerify', 
+                                'address', 'name', 'company_email', 'date' and many more. With 'numerify' and 
+                                'text', fake data will match the length of the redacted data.
+
+        Example:
+            # add a key to fill_text for each label in your extraction task w/ allowed fake data method
+            fill_text = dict(member='name', birthday='date', invoice_number='numerify')
+            highlight.redact_and_replace('source.pdf', 'redacted.pdf', fill_text=fill_text)
+        """
         fake = Faker()
         doc = fitz.open(pdf_path)
         for preds in self.prediction_positions:
@@ -142,6 +157,9 @@ class Highlighter:
                     token['bbRight'] * xnorm,
                     token['bbBot'] * ynorm,
                 )
+                inflater = annotation.height * 0.1
+                annotation.x0, annotation.y0 = annotation.x0 - inflater, annotation.y0 - inflater
+                annotation.x1, annotation.y1 = annotation.x1 + inflater, annotation.y1 + inflater
                 if 'label' in token:
                     label_type = fill_text[token['label'][0]]
                     if label_type == 'numerify':
@@ -152,6 +170,7 @@ class Highlighter:
                         text = getattr(fake, label_type)()
                     page.addRedactAnnot(annotation, text=text, fill=(1,1,1), fontsize=15)
                 else:
+                    #second line of single prediction redacted
                     page.addRedactAnnot(annotation, fill=(1,1,1))
                 page.apply_redactions()
         doc.save(output_path)
