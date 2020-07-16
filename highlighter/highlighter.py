@@ -1,5 +1,4 @@
-from typing import List, Tuple
-from pdf_annotate import PdfAnnotator, Location, Appearance
+from typing import List
 from collections import defaultdict
 import fitz
 from fitz.utils import getColor

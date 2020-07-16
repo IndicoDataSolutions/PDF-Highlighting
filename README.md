@@ -23,8 +23,14 @@ highlight = Highlighter(ondoc_ocr_result)
 # map predictions to PDF location
 highlight.collect_positions(model_predictions)
 
+# OPTIONALLY, include different colored highlights based on your model labels
+# make sure to have a color for every label in a dictionary (optional colors are listed
+# at the bottom of this page)
+color_map = {'year': 'GRAY', 'amount': 'AQUAMARINE', 'employee': 'FIREBRICK'}
+
 # highlight the positions onto a PDF
-highlight.highlight_pdf('./source_doc.pdf', './highlighted_source_doc.pdf', include_toc=True)
+highlight.highlight_pdf('./source_doc.pdf', './highlighted_source_doc.pdf', 
+                        include_toc=True, color_map=color_map)
 ```
 
 ## Redact and Replace PDF example
@@ -50,3 +56,7 @@ Assumes you have a trained extraction model and have installed the packages
 in 'requirements.txt' into a virtual env (tested w/ python 3.7.4- should work for 3.6+.
 Change the specifications of the global variables to your pdf paths, your indico host,
 and your extraction model ID.
+
+
+## Available colors for labels (if not using default yellow for everything)
+['GRAY52', 'FIREBRICK', 'BLANCHEDALMOND', 'GRAY', 'GRAY57', 'FIREBRICK3', 'MAGENTA2', 'MISTYROSE1', 'CADETBLUE4', 'LIGHTSLATEGRAY', 'PEACHPUFF2', 'IVORY1', 'INDIANRED4', 'PALEVIOLETRED2', 'TOMATO1', 'TOMATO', 'GOLDENROD2', 'DARKVIOLET', 'AQUAMARINE', 'CADETBLUE3', 'ORANGE3', 'GRAY21', 'GAINSBORO', 'TURQUOISE3', 'WHITE', 'MEDIUMVIOLETRED', 'GRAY34', 'NAVAJOWHITE1', 'GRAY12']

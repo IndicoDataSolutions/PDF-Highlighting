@@ -8,24 +8,23 @@ annotations to a copy of the source PDF document.
 Chang the specifications on the global variables to your paths/host/model. 
 """
 from highlighter import Highlighter, OnDoc
-from typing import List, Tuple
-from pdf_annotate import PdfAnnotator, Location, Appearance 
+from typing import List, Tuple 
 from indico import IndicoClient, IndicoConfig
 from indico.queries import (DocumentExtraction, JobStatus, 
                             ModelGroupPredict, RetrieveStorageObject)
 
 # NOTE: CHANGE BELOW FOR YOUR SPECIFICATIONS
-PDF_PATH = './pdf_example.pdf'
+PDF_PATH = './material_change.pdf'
 OUTPUT_PATH = './pdf_example_w_labels.pdf'
-TOKEN_PATH = './indico_api_token.txt'
+TOKEN_PATH = '../api_keys/api_token.txt'
 HOST = 'app.indico.io'
-MODEL_ID = 27018
+MODEL_ID = 31077
 
 
 def get_client(host: str, api_token_path: str) -> IndicoClient:
     config = IndicoConfig(
-            host=HOST,
-            api_token_path=TOKEN_PATH
+            host=host,
+            api_token_path=api_token_path
         )
     return IndicoClient(config=config)
 
