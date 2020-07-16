@@ -2,6 +2,7 @@ from typing import List, Tuple
 from pdf_annotate import PdfAnnotator, Location, Appearance
 from collections import defaultdict
 import fitz
+from fitz.utils import getColor
 from faker import Faker
 import copy
 from .ondoc import OnDoc
@@ -66,6 +67,10 @@ class Highlighter:
                         elif token["position"]["bbTop"] > position["bbBot"]:
                             result["positions"].append(position)
                             position = copy.deepcopy(token["position"])
+                            position["label"] = (
+                                pred["label"],
+                                len(pred["text"]),
+                            )
                         else:
                             position["bbRight"] = token["position"]["bbRight"]
                 if position:
@@ -75,7 +80,9 @@ class Highlighter:
             return prediction_positions
         self.prediction_positions = prediction_positions
 
-    def highlight_pdf(self, pdf_path: str, output_path: str, include_toc: bool = False):
+    def highlight_pdf(
+        self, pdf_path: str, output_path: str, include_toc: bool = False, color_map=None
+    ):
         """
         Highlights predictions onto a copy of source PDF with the option to include a table of contents
         
@@ -84,6 +91,8 @@ class Highlighter:
             output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
             include_toc {bool} -- if True, insert a table of contents of what annotations were made and on what page
         """
+        if not color_map:
+            color_map = defaultdict(lambda: "yellow")
         doc = fitz.open(pdf_path)
         for preds in self.prediction_positions:
             page = doc[preds["page_num"]]
@@ -96,7 +105,13 @@ class Highlighter:
                     token["bbRight"] * xnorm,
                     token["bbBot"] * ynorm,
                 )
-                page.addHighlightAnnot(annotation)
+                if not "label" in token:
+                    raise AssertionError("All tokens must have a label attribute")
+                color = color_map[token["label"][0]]
+                ann = page.addHighlightAnnot(annotation)
+                ann.setOpacity(0.5)
+                ann.setColors(stroke=getColor(color))
+                ann.update()
 
         if include_toc:
             toc_text = self.get_toc_text(pdf_path)
