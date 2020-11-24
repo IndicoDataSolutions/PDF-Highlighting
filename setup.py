@@ -4,6 +4,10 @@ setuptools.setup(
     name="PDF Highlighting",
     version="0.1",
     packages=setuptools.find_packages(),
+    author="indico",
+    author_email="scott.levin@indico.io",
+    tests_require=["pytest>=5.2.1"],
+    python_requires=">=3.6",
     install_requires=[
         "astroid==2.3.3",
         "attrs==19.3.0",

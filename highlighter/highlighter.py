@@ -20,10 +20,13 @@ class Highlighter:
             self.ocr_result = ocr_result
         else:
             self.ocr_result = OnDoc(ocr_result)
-        self.prediction_positions = None
+        self.prediction_positions : List[dict] = None
 
     def collect_positions(
-        self, predictions: List[List[dict]], inplace: bool = True
+        self, 
+        predictions: List[List[dict]], 
+        inplace: bool = True,
+        include_pred_text: bool = False,
     ) -> List[dict]:
         """
         Gets the predicted tokens positions on the PDF
@@ -34,7 +37,6 @@ class Highlighter:
         Returns:
             List[dict] -- locations of predictions
         """
-        # TODO: unify token blocks from same text prediction
         prediction_positions = []
         for page_ocr, page_preds in zip(self.ocr_result.ondoc, predictions):
             result = defaultdict(list)
@@ -58,6 +60,8 @@ class Highlighter:
                     ):
                         if new_prediction:
                             position = copy.deepcopy(token["position"])
+                            if include_pred_text:
+                                position["full_text"] = pred["text"]
                             position["label"] = (
                                 pred["label"],
                                 len(pred["text"]),
@@ -160,7 +164,7 @@ class Highlighter:
         )
 
     def redact_and_replace(
-        self, pdf_path: str, output_path: str, fill_text: dict = None
+        self, pdf_path: str, output_path: str, fill_text: dict
     ):
         """
         Redact predicted text from a copy of a source PDF and replace if with fake values based on 
@@ -169,7 +173,7 @@ class Highlighter:
         Arguments:
             pdf_path {str} -- path to source PDF
             output_path {str} -- path of labeled PDF copy to create (set to same as pdf_path to overwrite)
-            fill_test {dict} -- a dictionary where the keys are your labels and the val is an option from the 
+            fill_text {dict} -- a dictionary where the keys are your labels and the val is an option from the 
                                 faker library. Possible options include 'text', 'company', 'currency', 'numerify', 
                                 'address', 'name', 'company_email', 'date' and many more. With 'numerify' and 
                                 'text', fake data will match the length of the redacted data.
