@@ -20,64 +20,120 @@ class Highlighter:
             self.ocr_result = ocr_result
         else:
             self.ocr_result = OnDoc(ocr_result)
-        self.prediction_positions : List[dict] = None
+        self.prediction_positions: List[dict] = None
+
+    @staticmethod
+    def _match_page_predict(
+        predictions: List[dict],
+        page_ocr: dict,
+        include_pred_text: bool = False,
+        offset_text: str = "doc_offset",
+    ) -> dict:
+        """
+        Use doc_offset or page_offset to get bounding boxes for each token of page's predictions
+        """
+        result = defaultdict(list)
+        meta = page_ocr["pages"][0]
+        result["dimensions"].extend([meta["size"]["width"], meta["size"]["height"]])
+        result["page_num"] = meta["page_num"]
+        result["labels"] = defaultdict(int)
+        for pred in predictions:
+            result["labels"][pred["label"]] += 1
+            start, end = (
+                pred["start"] - 1,
+                pred["end"] + 1,
+            )
+            new_prediction = True
+            position = dict()
+            for token in page_ocr["tokens"]:
+                if (
+                    token[offset_text]["start"] >= start
+                    and token[offset_text]["end"] <= end
+                ):
+                    if new_prediction:
+                        position = copy.deepcopy(token["position"])
+                        if include_pred_text:
+                            position["full_text"] = pred["text"]
+                        position["label"] = (
+                            pred["label"],
+                            len(pred["text"]),
+                        )  # length for spoofing
+                        new_prediction = False
+                    elif token["position"]["bbTop"] > position["bbBot"]:
+                        result["positions"].append(position)
+                        position = copy.deepcopy(token["position"])
+                        position["label"] = (
+                            pred["label"],
+                            len(pred["text"]),
+                        )
+                    else:
+                        position["bbRight"] = token["position"]["bbRight"]
+            if position:
+                result["positions"].append(position)
+        return result
 
     def collect_positions(
-        self, 
-        predictions: List[List[dict]], 
+        self,
+        predictions: List[List[dict]],
         inplace: bool = True,
         include_pred_text: bool = False,
     ) -> List[dict]:
         """
-        Gets the predicted tokens positions on the PDF
+        Gets the predicted tokens positions from a full document prediction output json
         
         Arguments:
             predictions {List[List[dict]]} -- prediction output from ModelGroupPredict
+            include_pred_text {bool} -- whether to include the text of the prediction with the positional data
+        
+        Returns:
+            List[dict] -- locations of predictions
+        """
+        prediction_positions = []
+        sorted_preds = sorted(predictions[0], key=lambda x: x["start"])
+
+        for page_ocr in self.ocr_result.ondoc:
+            max_page_offset = page_ocr["tokens"][-1]["doc_offset"]["end"]
+            if max_page_offset < sorted_preds[0]["start"]:
+                continue
+            page_preds = []
+            for i, pred in enumerate(sorted_preds):
+                if pred["start"] > max_page_offset:
+                    sorted_preds = sorted_preds[i:]
+                    break
+                else:
+                    page_preds.append(pred)
+            if not page_preds:
+                continue
+            result = self._match_page_predict(page_preds, page_ocr, include_pred_text)
+            prediction_positions.append(result)
+
+        if not inplace:
+            return prediction_positions
+        self.prediction_positions = prediction_positions
+
+    def collect_page_wise_positions(
+        self,
+        predictions: List[List[dict]],
+        inplace: bool = True,
+        include_pred_text: bool = False,
+    ) -> List[dict]:
+        """
+        Gets the predicted tokens positions given page-wise prediection results 
+        (i.e. a document's pages separated and individually sent to the model)
+        
+        Arguments:
+            predictions {List[List[dict]]} -- prediction output from ModelGroupPredict
+            include_pred_text {bool} -- whether to include the text of the prediction with the positional data
         
         Returns:
             List[dict] -- locations of predictions
         """
         prediction_positions = []
         for page_ocr, page_preds in zip(self.ocr_result.ondoc, predictions):
-            result = defaultdict(list)
-            meta = page_ocr["pages"][0]
-            result["dimensions"].extend([meta["size"]["width"], meta["size"]["height"]])
-            result["page_num"] = meta["page_num"]
-            result["labels"] = defaultdict(int)
             page_preds = sorted(page_preds, key=lambda x: x["start"])
-            for pred in page_preds:
-                result["labels"][pred["label"]] += 1
-                start, end = (
-                    pred["start"] - 1,
-                    pred["end"] + 1,
-                )  # account for punctuation incl. w/ token
-                new_prediction = True
-                position = dict()
-                for token in page_ocr["tokens"]:
-                    if (
-                        token["page_offset"]["start"] >= start
-                        and token["page_offset"]["end"] <= end
-                    ):
-                        if new_prediction:
-                            position = copy.deepcopy(token["position"])
-                            if include_pred_text:
-                                position["full_text"] = pred["text"]
-                            position["label"] = (
-                                pred["label"],
-                                len(pred["text"]),
-                            )  # length for spoofing
-                            new_prediction = False
-                        elif token["position"]["bbTop"] > position["bbBot"]:
-                            result["positions"].append(position)
-                            position = copy.deepcopy(token["position"])
-                            position["label"] = (
-                                pred["label"],
-                                len(pred["text"]),
-                            )
-                        else:
-                            position["bbRight"] = token["position"]["bbRight"]
-                if position:
-                    result["positions"].append(position)
+            result = self._match_page_predict(
+                page_preds, page_ocr, include_pred_text, "page_offset"
+            )
             prediction_positions.append(result)
         if not inplace:
             return prediction_positions
@@ -163,9 +219,7 @@ class Highlighter:
             f"*Important* to ensure that underlying data can't be recovered, convert {output_path} to a png, tif, or scanned pdf file"
         )
 
-    def redact_and_replace(
-        self, pdf_path: str, output_path: str, fill_text: dict
-    ):
+    def redact_and_replace(self, pdf_path: str, output_path: str, fill_text: dict):
         """
         Redact predicted text from a copy of a source PDF and replace if with fake values based on 
         label keys. For a full list of fake data options, see: https://github.com/joke2k/faker). 

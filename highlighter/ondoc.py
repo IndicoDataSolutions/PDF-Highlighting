@@ -10,11 +10,24 @@ class OnDoc:
         self.ondoc = ondoc
 
     @property
+    def full_text(self) -> str:
+        """
+        Return full document text
+        """
+        return '\n'.join(page['pages'][0]['text'] for page in self.ondoc)
+    
+    @property
     def page_text(self) -> List[str]:
+        """
+        Return list of page-level text
+        """
         return list(page['pages'][0]['text'] for page in self.ondoc)
 
     @property
     def page_results(self)-> List[dict]:
+        """
+        Return list of page-level dictionary result objects
+        """
         return list(page['pages'][0] for page in self.ondoc)
 
     @property

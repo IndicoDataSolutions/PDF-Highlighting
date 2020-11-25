@@ -53,7 +53,7 @@ The executable script 'example_pipeline.py' demonstrates how to apply highlighti
 a PDF w/ Indico's OCR/Prediction positional data. 
 
 Assumes you have a trained extraction model and have installed the packages 
-in 'requirements.txt' into a virtual env (tested w/ python 3.7.4- should work for 3.6+.
+via 'python setup.py install' (tested w/ python 3.7.4- should work for 3.6+).
 Change the specifications of the global variables to your pdf paths, your indico host,
 and your extraction model ID.
 

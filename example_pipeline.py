@@ -4,8 +4,6 @@ Assumes you have a trained extraction model. Given the path to a PDF document,
 OCRs that pdf document (w/ preset_config='ondocument') and then gets predicted
 annotations. Next with the OCR and prediction results, highlights the 
 annotations to a copy of the source PDF document.
-
-Chang the specifications on the global variables to your paths/host/model. 
 """
 from highlighter import Highlighter, OnDoc
 from typing import List, Tuple 
@@ -13,12 +11,12 @@ from indico import IndicoClient, IndicoConfig
 from indico.queries import (DocumentExtraction, JobStatus, 
                             ModelGroupPredict, RetrieveStorageObject)
 
-# NOTE: CHANGE BELOW FOR YOUR SPECIFICATIONS
-PDF_PATH = './material_change.pdf'
+# NOTE: CHANGE BELOW FOR YOUR ENVIRONMENT, MODEL, AND INDICO INSTANCE
+PDF_PATH = '../datasets/test.pdf'
 OUTPUT_PATH = './pdf_example_w_labels.pdf'
-TOKEN_PATH = '../api_keys/api_token.txt'
+TOKEN_PATH = '../api_keys/indico_api_token.txt'
 HOST = 'app.indico.io'
-MODEL_ID = 31077
+MODEL_ID = 30242
 
 
 def get_client(host: str, api_token_path: str) -> IndicoClient:
@@ -31,14 +29,7 @@ def get_client(host: str, api_token_path: str) -> IndicoClient:
 
 def ocr_pdf_document(client: IndicoClient, pdf_path: str) -> Tuple[List[dict], List[str]]:
     """
-    OCRs a PDF document and prepares page-level text for predictions
-    
-    Arguments:
-        client {IndicoClient} -- client for your account
-        pdf_path {str} -- path to the PDF you want to OCR
-    
-    Returns:
-        Tuple[List[dict], List[str]] -- Raw OCR result and list of page texts
+    OCRs a PDF or Tiff document
     """
     files_to_extract = client.call(
         DocumentExtraction(
@@ -48,27 +39,26 @@ def ocr_pdf_document(client: IndicoClient, pdf_path: str) -> Tuple[List[dict], L
     )
     extracted_file = client.call(JobStatus(id=files_to_extract[0].id, wait=True))
     if extracted_file.status != 'SUCCESS':
-        raise ValueError('OCR Failed- make sure your doc/token path is correct.')
-    ocr_result = client.call(RetrieveStorageObject(extracted_file.result))
-    return ocr_result
+        print(f"ERROR: {extracted_file.result}")
+        raise Exception('OCR Failed- make sure your doc/token path is correct.')
+    return client.call(RetrieveStorageObject(extracted_file.result))
 
-
-def get_predictions(client: IndicoClient, page_texts: List[str], model_id: int) -> List[List[dict]]:
+def get_predictions(client: IndicoClient, doc_text: List[str], model_id: int) -> List[List[dict]]:
     """
     Get predicted annotations for PDF pages
     
     Arguments:
         client {IndicoClient} -- your account client
-        page_texts {List[str]} -- list of page texts
+        page_texts {List[str]} -- list of full doc_text
         model_id {int} -- model ID for your trained extraction model
     
     Returns:
-        List[List[dict]] -- For each page, a list of predicted annotations
+        List[List[dict]] -- prediction results
     """
     job = client.call(
         ModelGroupPredict(
             model_id=model_id,
-            data=page_texts,
+            data=doc_text,
             )
         )
     prediction = client.call(
@@ -81,9 +71,8 @@ def main():
     print('Starting...')
     client = get_client(host=HOST, api_token_path=TOKEN_PATH)
     ocr_result = ocr_pdf_document(client, pdf_path=PDF_PATH)
-    page_level_text = OnDoc(ocr_result).page_text
-    predictions = get_predictions(client, page_level_text, model_id=MODEL_ID)
     highlight = Highlighter(ocr_result)
+    predictions = get_predictions(client, [highlight.ocr_result.full_text], model_id=MODEL_ID)
     highlight.collect_positions(predictions)
     highlight.highlight_pdf(PDF_PATH, OUTPUT_PATH, include_toc=True)
     print('Finished..')
