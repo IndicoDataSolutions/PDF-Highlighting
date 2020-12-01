@@ -1,10 +1,20 @@
 import pytest
+import pickle
 from pathlib import Path
 
 
 @pytest.fixture(scope="session")
 def test_dir():
     return Path(__file__).parent.absolute()
+
+@pytest.fixture(scope="session")
+def full_ondoc_ocr(test_dir):
+    return pickle.load(open(test_dir / "invoice_ocr_result.p", "rb"))
+
+@pytest.fixture(scope="session")
+def full_preds(test_dir):
+    return pickle.load(open(test_dir / "invoice_predictions.p", "rb"))
+
 
 SAMPLE_OCR = [
     {
